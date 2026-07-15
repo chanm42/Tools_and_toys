@@ -1,6 +1,4 @@
 # Tools_and_toys
-Personal repo for saving interesting codes and calculations used for a variety of physics, chemistry, and linear algebraic problems. Plus some codes that are just fun or interesting to play around with.
-
 Hello! Welcome to my personal repository :) here I will be updating software as I continue researching and developing in the fields of quantum chemistry, physics, quantum computing, computer science, and linear algebra. Among other things in here you will find:  
     File parsers for molden file formats  
     Useful software for integrals of gaussian functions and gaussian products, as well as moments of gaussian products (very useful in quantum chemistry), electron repulsion integrals, overlap integrals, etc.  
