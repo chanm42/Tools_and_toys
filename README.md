@@ -5,7 +5,7 @@ Hello! Welcome to my personal repository :) here I will be updating software as 
     File parsers for molden file formats  
     Useful software for integrals of gaussian functions and gaussian products, as well as moments of gaussian products (very useful in quantum chemistry), electron repulsion integrals, overlap integrals, etc.  
     Quantum computing algorithms and development of quantum ansatze  
-    Interesting linear algebra techniques like power iteration, Krylov subspace expansion, Loewdin partitioning, Greshgorin discs, and whatever else I find that looks fun to play around with  
+    Interesting linear algebra techniques like power iteration, Krylov subspace expansion, Löwdin partitioning, Greshgorin discs, and whatever else I find that looks fun to play around with  
 
 You will likely find many examples of questionable software practices and certainly many bugs in the codes here, that is because this repository is primarily meant as a place where I can test software and play around with problems I find interesting. These functions may not all end up being useful but many of them are designed to serve a specific purpose within my research fields. Documentation in the software will be sporadic but the functions themselves should be written clearly.
 
