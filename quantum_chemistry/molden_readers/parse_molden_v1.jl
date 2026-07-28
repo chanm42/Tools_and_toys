@@ -1,8 +1,25 @@
 using Printf
-include("./900_common_headers.jl")
+include("./900_common_header.jl")
 
-struct TCM #TeraChem molden parsing tags
-    outtag_m = "./"
+struct TCM
+    outtag_m::String
+    coord_st::String
+    coord_ed::String
+    gto_end ::String
+    mo_end  ::String
+    root_str::String
+    fcoord  ::String
+    fgto    ::String
+    fmovec  ::String
+    froots  ::String
+    febasis ::String
+    fmat    ::String
+    froot   ::String
+    focc    ::String
+    fspin   ::String
+end # struct
+
+function TCM_cons(outtag_m) #TeraChem molden parsing tag
     # Define start and end blocks for molden file
     coord_st = "Atoms"
     coord_ed = "GTO"
@@ -10,16 +27,32 @@ struct TCM #TeraChem molden parsing tags
     mo_end   = ",\$p"
     root_str = "Ene"
     # Define output file names
-    fcoord   = string(outtag_m,"coords.inp") 
-    fgto     = string(outtag_m,"gto.inp") 
-    fmovec   = string(outtag_m,"movec.inp") 
-    froots   = string(outtag_m,"roots.inp") 
-    febasis  = string(outtag_m,"ebasis.inp") 
-    fmat     = string(outtag_m,"mo_to_ao.inp") 
-    froot    = string(outtag_m,"moeng.inp") 
-    focc     = string(outtag_m,"occupancy.inp") 
-    fspin    = string(outtag_m,"spin.inp")
-end # struct
+    fcoord   = joinpath(outtag_m,"coords.inp") 
+    fgto     = joinpath(outtag_m,"gto.inp") 
+    fmovec   = joinpath(outtag_m,"movec.inp") 
+    froots   = joinpath(outtag_m,"roots.inp") 
+    febasis  = joinpath(outtag_m,"ebasis.inp") 
+    fmat     = joinpath(outtag_m,"mo_to_ao.inp") 
+    froot    = joinpath(outtag_m,"moeng.inp") 
+    focc     = joinpath(outtag_m,"occupancy.inp") 
+    fspin    = joinpath(outtag_m,"spin.inp")
+    obj      = TCM(outtag_m,
+                   coord_st,
+                   coord_ed,
+                   gto_end,
+                   mo_end,
+                   root_str,
+                   fcoord,
+                   fgto,
+                   fmovec,
+                   froots,
+                   febasis,
+                   fmat,
+                   froot,
+                   focc,
+                   fspin)
+    return obj
+end # constructor
 
 function dp_format(args...)
     # Format args in double precision
@@ -33,9 +66,9 @@ end
 function lnx_cmd(comm::Cmd)
     # Run linux shell command in script
     # The comm variable must be a comm object in julia, denoted by backticks '
-    # Typically easier to use the run(pipeline(`comm`,stdout=XXX)) method if piping
-    run(bash -c comm)
-    return Nothing
+    # Typically easier to use the run(pipeline(comm,stdout=XXX)) method if piping
+    run(`bash -c $comm`)
+    return nothing
 end
 
 function line_cnt_file(infile)
@@ -49,11 +82,10 @@ function grep_str_to_file(string,fin,fout)
     open(fout,"w") do io
         run(pipeline(`grep $string $fin`,stdout=io))
     end
-    close(fout)
-    return Nothing
+    return nothing
 end
 
-function extract_lines_from_file(pos_start, pos_end, infile, outfile, EOF_ext=true)
+function extract_lines_from_file(pos_start::String, pos_end::String, infile::String, outfile::String, EOF_ext=true)
     ftmp  = "./tmp.sed"
     ftmp2 = "./tmp.cat"
     comm1 = `sed -n $("/" * pos_start * "/,/" * pos_end * "/p") $infile`
@@ -62,57 +94,56 @@ function extract_lines_from_file(pos_start, pos_end, infile, outfile, EOF_ext=tr
     if EOF_ext == true
         run(pipeline(comm1,stdout=ftmp))
         run(pipeline(comm2,stdout=ftmp2))
-        run(pipeline(comm3,stdout=fout))
+        run(pipeline(comm3,stdout=outfile))
         rm(ftmp2)
     else
         comm1 = `sed -n $("/" * pos_start * "/" * pos_end) $infile`
         comm3 = `tail -n+2 $ftmp`
         run(pipeline(comm1,stdout=ftmp))
-        run(pipeline(comm3,stdout=fout))
+        run(pipeline(comm3,stdout=outfile))
         rm(ftmp)
     end
-    return Nothing
+    return nothing
 end
 
-function extract_momat_molden(nb,nao,infile)
+function extract_momat_v2(nb,nao,infile)
     lc    = countlines(infile)
     mat   = zeros((nb,nb))
     roots = zeros(nb)
     spin  = zeros(nb)
     occ   = zeros(nb)
     fin   = open(infile,"r")
+    imo::Int = 0 
     for l=1:lc
         line = readline(fin)
-        if "ENE" in uppercase(line)
+        if occursin("ENE",uppercase(line))
             imo += 1
-            if imo == nb
-                break
-            else
+            if imo != nb
                 e = split(strip(line))
                 roots[imo] = parse(Float64,e[2])
                 continue
             end
-        if "SPIN" in uppercase(line)
-            if "ALPHA" in uppercase(line)
+        elseif occursin("SPIN",uppercase(line))
+            if occursin("ALPHA",uppercase(line))
                 spin[imo] = 0.50e0
-            elseif "BETA" in uppercase(line)
+            elseif occursin("BETA",uppercase(line))
                 spin[imo] = -0.50e0
             end
             continue
-        end
-        if "OCCUP" in uppercase(line)
+        elseif occursin("OCCUP",uppercase(line))
             oc = split(strip(line))
             occ[imo] = parse(Float64,oc[2])
             continue
-        end
-        if "MOLDEN" in uppercase(line)
+        elseif imo == nb
             break
-        end
+        elseif occursin("MOLDEN",uppercase(line))
+            break
         else
             lin  = split(strip(line))
-            iao  = parse(Int,lin[1]) - 1
+            iao  = parse(Int,lin[1])
             mval = parse(Float64,lin[2])
             mat[iao,imo] = mval
+        end
     end
     close(fin)
     return spin,occ,roots,mat
@@ -139,7 +170,7 @@ function write_mat(nb,mat,filename)
     fout  = open(filename,"w")
     buff1 = "NAO \t NMO \n"
     buff2 = "$nb \t $nb \n"
-    buff3 = "IAO \t IMO \t COEFF[IAO,IMO]"
+    buff3 = "IAO \t IMO \t COEFF[IAO,IMO]\n"
     write(fout,buff1)
     write(fout,buff2)
     write(fout,buff3)
@@ -151,24 +182,24 @@ function write_mat(nb,mat,filename)
         end
     end
     close(fout)
-    return Nothing
+    return nothing
 end
 
-function wtite_vec(nb,vec,filename)
+function write_vec(nb,vec,filename)
     fout = open(filename,"w")
     line = "$nb \n"
     write(fout,line)
     for imo=1:nb
-        line = "$imo \t $(dp_format(vec[imo]))"
+        line = "$imo \t $(dp_format(vec[imo]))\n"
         write(fout,line)
     end
     close(fout)
-    return Nothing
+    return nothing
 end
 
 function gto_get_atom_breaks(fgto)
-    comm1 = `sed -n /^$/= $fgto`
-    run(pipeline(comm1,stdout=tmp.break))
+    comm1 = `sed -n '/^$/=' $fgto`
+    run(pipeline(comm1,stdout="tmp.break"))
     lc    = countline(tmp.break)
     atm_start  = 0
     atm_breaks = []
@@ -205,32 +236,34 @@ function read_one_bas!(lines_iter,lsym,ncont,fac=1.0)
 end
 
 function molden_gto_reader(natm,coords,fgto)
-    fin = open(fgto,"r")
-    lines = readlines(fin)
+    fin        = open(fgto,"r")
+    lines      = readlines(fin)
     close(fin)
     lines_iter = Iterators.Stateful(lines)
-    cent = Vector{Any}[]
-    basis = Dict{Int,Any}()
+    cent       = Vector{Any}[]
+    basis      = Dict{Int,Any}()
+    iatm::Int  = 0
     
     for line in lines_iter
         dat = split(line)
-        if isempty(dat)== 0
+        if isempty(dat)
             continue
         elseif tryparse(Int,dat[1]) !== nothing
-            iatm  = parse(Int,dat[1]) - 1
-            coord = coords[iatm+1]
-            push!(cent,[iatm+1,coord])
-            basis[iatm+1] = []
+            #println(">>Tryparse sucsessfull= $(dat[1])")
+            iatm  = parse(Int,dat[1])
+            coord = coords[iatm]
+            push!(cent,[iatm,coord])
+            basis[iatm] = []
+            #println("cent= $cent")
         elseif uppercase(dat[1]) in ["S","P","D","F","G","H","I","J"]
-            push!(basis[iatm+1],read_one_bas!(
+            #println("dat= $dat")
+            push!(basis[iatm],read_one_bas!(
                                            lines_iter,
                                            dat[1],
                                            dat[2],
-                                           fac = dat[3]
-                                          )
-                                        )
-        end
-    end
+                                           dat[3]))
+        end # if
+    end # lines
     return cent,basis
 end
 
@@ -242,18 +275,24 @@ function ebasis_writer(natm,centl,basis,fileout)
     write(fout,line)
     for iatm=1:natm
         icent  = centl[iatm][2]
-        buff   = "--------------- $(icent[2]) --------------- \n"
+        buff   = "---------------$(icent[2])--------------- \n"
+        write(fout,buff)
         icoord = icent[3]
+        if false
+            println("icent= $icent")
+            println("length= $(length(icent))")
+            println("icoord= $icoord")
+            println("length= $(length(icoord))")
+            println("centl= $centl")
+        end
         s      = dp_format(icoord[1],icoord[2],icoord[3])
         buff1  = "CENTER \n"
         buff2  = "$s \n"
         buff3  = "SYMBOLS \n"
-        buff4  = "\n"
-        buff5  = "$(string(length(basis[iatm]))) \n"
+        buff5  = "  $(string(length(basis[iatm]))) \n"
         write(fout,buff1)
         write(fout,buff2)
         write(fout,buff3)
-        write(fout,buff4)
         write(fout,buff5)
         for iprim=1:length(basis[iatm])
             sym   = basis[iatm][iprim][1][1]
@@ -263,13 +302,18 @@ function ebasis_writer(natm,centl,basis,fileout)
             for icont=1:ncont
                 alpha = basis[iatm][iprim][icont][4]
                 coeff = basis[iatm][iprim][icont][5]
+                #println("raw_alpha= $alpha")
+                #println("raw_coeff= $coeff")
+                #println("dp_alpha= $(dp_format(alpha))")
+                #println("dp_coeff= $(dp_format(coeff))")
                 buff  = "\t $(string(icont)) \t $(dp_format(alpha)) \t $(dp_format(coeff)) \n"
+                #println(buff)
                 write(fout,buff)
             end # for icont
         end # for iprim
     end # for iatm
     close(fout)
-    return Nothing
+    return nothing
 end
 
 function read_coords(natm,fcoord)
@@ -280,11 +324,11 @@ function read_coords(natm,fcoord)
         line = readline(fin)
         line = split(strip(line))
         atm  = string(line[1])
-        iatm = Int(line[2])
-        inuc = Int(line[3])
-        x    = Float64(line[4])*ang_to_bohr
-        y    = Float64(line[5])*ang_to_bohr
-        z    = Float64(line[6])*ang_to_bohr
+        iatm = parse(Int,line[2])
+        inuc = parse(Int,line[3])
+        x    = parse(Float64,line[4])*ang_to_bohr
+        y    = parse(Float64,line[5])*ang_to_bohr
+        z    = parse(Float64,line[6])*ang_to_bohr
         xyz  = [x,y,z]
         push!(coords,xyz)
     end
@@ -306,11 +350,11 @@ function read_coords_v2(natm,fcoord)
         line = readline(fin)
         line = split(strip(line))
         atm  = string(line[1])
-        iatm = Int(line[2])
-        inuc = Int(line[3])
-        x    = Float64(line[4])*ang_to_bohr
-        y    = Float64(line[5])*ang_to_bohr
-        z    = Float64(line[6])*ang_to_bohr
+        iatm = parse(Int,line[2])
+        inuc = parse(Int,line[3])
+        x    = parse(Float64,line[4])*ang_to_bohr
+        y    = parse(Float64,line[5])*ang_to_bohr
+        z    = parse(Float64,line[6])*ang_to_bohr
         xyz  = [x,y,z]
         for idim=1:3
             if xmin[idim] > xyz[idim]
@@ -319,8 +363,8 @@ function read_coords_v2(natm,fcoord)
                 xmax[idim] = xyz[idim]
             end
         end # for idim
-        push!(coords,xyz)
-    end
+        push!(coords,[iatm,atm,xyz])
+    end # iatm
     close(fin)
     return xmin,xmax,coords
 end
@@ -340,16 +384,16 @@ function test_momat(nb,roots,momat)
         end
     end
     close(fout)
-    return Nothing
+    return nothing
 end
 
-function parse(filename,outtag)
+function parse_mo(filename,outtag)
     println("---- Parsing $filename ----")
-    obj = TCM(outdir=ottag)
+    obj = TCM_cons(outtag)
 
     extract_lines_from_file(obj.coord_st,obj.coord_ed,filename,obj.fcoord)
     extract_lines_from_file(obj.coord_ed,obj.gto_end,filename,obj.fgto)
-    extract_lines_from_file(obj.gto_end,obj.mo_end,filename,obj.fmovec,EOF_ext=false)
+    extract_lines_from_file(obj.gto_end,obj.mo_end,filename,obj.fmovec,false)
     grep_str_to_file(obj.root_str,obj.fmovec,obj.froots)
     nb = countlines(obj.froots)
     spin,occ,roots,momat = extract_momat_v2(nb,nb,obj.fmovec)
@@ -385,7 +429,7 @@ function write_grid_maker(xmin,xmax,nb,filename)
     write(fout,str5)
     write(fout,str6)
     close(fout)
-    return Nothing
+    return nothing
 end
 
 function test1A()
@@ -393,17 +437,17 @@ function test1A()
     # outtag   = directory you want files published to
     filename = "./b10n10s.molden"
     outtag   = "./"
-    xmin,xmax,nb = parse(filename,outtag)
+    xmin,xmax,nb = parse_mo(filename,outtag)
     println("Finished parsing $filename")
     println("> xmax= $xmax")
     println("> xmin= $xmin")
     delta = 12.0e0
-    xmin  = xmin - delta
-    xmax  = xmax + delta
+    xmin  = xmin .- delta
+    xmax  = xmax .+ delta
     fgrid = outtag*"grid_maker_info.inp"
     write_grid_maker(xmin,xmax,nb,fgrid)
     
-    return Nothing
+    return nothing
 end
 
 

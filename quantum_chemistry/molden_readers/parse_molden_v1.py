@@ -237,6 +237,10 @@ def ebasis_writer(natm,centL,basis,fileout):
         #print("icent= ",icent)
         buff = "---------------"+icent[1]+"---------------" + '\n'
         icoord = icent[2]
+        if False:
+            print("icent= ",icent)
+            print("icoord= ",icoord)
+            print("centl= ",centL)
         s = dp_format(icoord[0],icoord[1],icoord[2])
         buff += "CENTER" + '\n' + s + '\n'
         buff += 'SYMBOLS' + '\n' +"  "+ str(len(basis[iatm])) + '\n'
@@ -358,7 +362,7 @@ def write_grid_maker(xmin,xmax,nb,filename):
 def test1A():
     #filename is the molden file path#
     #outtag is the directory path that you wish to write all outfiles to"
-    filename = './water.molden'
+    filename = './b10n10s.molden'
     outtag   = './'
     xmin,xmax,nb = parse(filename,outtag)
     print("Finished parsing")
